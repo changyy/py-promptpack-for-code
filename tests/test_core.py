@@ -2,7 +2,7 @@ import os
 import tempfile
 from pathlib import Path
 import unittest
-from promptpack_for_code.core import process_directory, generate_tree
+from promptpack_for_code.core import process_directories, generate_tree
 
 class TestPromptPackForCode(unittest.TestCase):
     def setUp(self):
@@ -40,12 +40,13 @@ class TestPromptPackForCode(unittest.TestCase):
         self.assertIn("helper.py", tree)
         self.assertNotIn("ignored.pyc", tree)
         
-    def test_process_directory(self):
+    def test_process_directories(self):
         output_file = self.root_dir / "output.txt"
-        process_directory(
-            str(self.root_dir / "src"),
-            str(self.root_dir),
-            str(output_file)
+        process_directories(
+            directories=[str(self.root_dir / "src")],  # 改為列表形式
+            root_directory=str(self.root_dir),
+            output_file=str(output_file),
+            force_overwrite=True
         )
         
         # Check if output file exists
@@ -57,26 +58,42 @@ class TestPromptPackForCode(unittest.TestCase):
         # Check if tree structure is included
         self.assertIn("Project Directory Structure:", content)
         
-        # Check if file contents are included
-        self.assertIn("File Contents from Selected Directory:", content)
+        # Check if file contents are included with full paths
+        self.assertIn("File Contents from Selected Directories:", content)
+        self.assertIn("File: src/main.py", content)
         self.assertIn("def main():", content)
+        self.assertIn("File: src/utils/helper.py", content)
         self.assertIn("def helper():", content)
         
         # Check if ignored files are excluded
         self.assertNotIn("should not appear", content)
 
-    def test_process_directory_with_custom_ignore(self):
+    def test_process_directories_with_custom_ignore(self):
         output_file = self.root_dir / "output.txt"
-        process_directory(
-            str(self.root_dir / "src"),
-            str(self.root_dir),
-            str(output_file),
-            ignore_patterns=["*.py"]  # Ignore all Python files
+        process_directories(
+            directories=[str(self.root_dir / "src")],  # 改為列表形式
+            root_directory=str(self.root_dir),
+            output_file=str(output_file),
+            ignore_patterns=["*.py"],  # Ignore all Python files
+            force_overwrite=True
         )
         
         content = output_file.read_text()
         self.assertNotIn("def main():", content)
         self.assertNotIn("def helper():", content)
+
+    def test_process_multiple_directories(self):
+        output_file = self.root_dir / "output.txt"
+        process_directories(
+            directories=[str(self.root_dir / "src"), str(self.root_dir / "src/utils")],  # 多目錄測試
+            root_directory=str(self.root_dir),
+            output_file=str(output_file),
+            force_overwrite=True
+        )
+        
+        content = output_file.read_text()
+        self.assertIn("File: src/main.py", content)
+        self.assertIn("File: src/utils/helper.py", content)
 
 if __name__ == '__main__':
     unittest.main()
