@@ -28,6 +28,8 @@ setup(
     entry_points={
         "console_scripts": [
             "promptpack-for-code=promptpack_for_code.__main__:main",
+            "ppc=promptpack_for_code.__main__:main",
+            "packcode=promptpack_for_code.__main__:main",
         ],
     },
     author="Yuan-Yi Chang",
