@@ -2,7 +2,8 @@ import os
 import tempfile
 from pathlib import Path
 import unittest
-from promptpack_for_code.core import process_directories, generate_tree
+import xml.etree.ElementTree as ET
+from promptpack_for_code.core import process_directories, generate_tree, generate_directory_structure_xml
 
 class TestPromptPackForCode(unittest.TestCase):
     def setUp(self):
@@ -94,6 +95,48 @@ class TestPromptPackForCode(unittest.TestCase):
         content = output_file.read_text()
         self.assertIn("File: src/main.py", content)
         self.assertIn("File: src/utils/helper.py", content)
+
+    def test_xml_output(self):
+        # Test the XML output format
+        output_file = self.root_dir / "output.xml"
+        process_directories(
+            directories=[str(self.root_dir / "src")],
+            root_directory=str(self.root_dir),
+            output_file=str(output_file),
+            force_overwrite=True,
+            output_format="xml"
+        )
+        
+        # Check if output file exists
+        self.assertTrue(output_file.exists())
+        
+        # Parse the XML file
+        try:
+            tree = ET.parse(output_file)
+            root = tree.getroot()
+            
+            # Check XML structure
+            self.assertEqual(root.tag, "project")
+            self.assertTrue(root.find("name") is not None)
+            self.assertTrue(root.find("structure") is not None)
+            self.assertTrue(root.find("contents") is not None)
+            
+            # Check for file content
+            file_elements = root.findall(".//contents/file")
+            file_paths = [file_elem.get("path") for file_elem in file_elements]
+            
+            self.assertIn("src/main.py", file_paths)
+            self.assertIn("src/utils/helper.py", file_paths)
+            
+            # Check content of one file
+            main_file = root.find(".//contents/file[@path='src/main.py']")
+            self.assertIsNotNone(main_file)
+            content_elem = main_file.find("content")
+            self.assertIsNotNone(content_elem)
+            self.assertIn("def main():", content_elem.text)
+            
+        except ET.ParseError:
+            self.fail("Generated XML is not well-formed")
 
 if __name__ == '__main__':
     unittest.main()

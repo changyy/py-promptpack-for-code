@@ -28,6 +28,9 @@ Examples:
   
   # Show progress bar
   promptpack-for-code /path/to/code --progress
+  
+  # Generate XML output instead of text
+  promptpack-for-code /path/to/code --format xml
 """
     )
     parser.add_argument(
@@ -44,8 +47,8 @@ Examples:
     parser.add_argument(
         "-o", "--output",
         type=str,
-        default="output.txt",
-        help="Output file path (default: output.txt)"
+        default="output.xml",
+        help="Output file path (default: output.xml)"
     )
     parser.add_argument(
         "-f", "--force",
@@ -78,6 +81,13 @@ Examples:
         action="store_true",
         help="Show progress bar while processing files"
     )
+    parser.add_argument(
+        "--format",
+        type=str,
+        choices=["text", "xml"],
+        default="xml",
+        help="Output format (xml or text, default: xml)"
+    )
 
     args = parser.parse_args()
 
@@ -94,6 +104,30 @@ Examples:
             return 1
 
         output_path = Path(args.output)
+        
+        # 自動調整檔案名稱與輸出格式一致
+        output_filename = str(output_path)
+        if args.format.lower() == "xml" and not output_filename.lower().endswith(".xml"):
+            if "." in output_path.name:
+                print(f"Warning: XML output format selected but output file has non-XML extension. Using {output_path}")
+            else:
+                output_path = Path(output_filename + ".xml")
+                print(f"XML output format selected, using filename: {output_path}")
+        elif args.format.lower() == "text" and not output_filename.lower().endswith(".txt"):
+            if "." in output_path.name:
+                print(f"Warning: Text output format selected but output file has non-TXT extension. Using {output_path}")
+            else:
+                output_path = Path(output_filename + ".txt")
+                print(f"Text output format selected, using filename: {output_path}")
+                
+        # 如果使用預設檔名但使用不同格式，則切換檔名
+        if args.output == "output.xml" and args.format.lower() == "text":
+            output_path = Path("output.txt")
+            print(f"Text output format selected with default filename, using: {output_path}")
+        elif args.output == "output.txt" and args.format.lower() == "xml":
+            output_path = Path("output.xml")
+            print(f"XML output format selected with default filename, using: {output_path}")
+            
         if output_path.parent != Path('.'):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
@@ -103,7 +137,8 @@ Examples:
             output_file=str(output_path),
             ignore_patterns=args.ignore,
             force_overwrite=args.force,
-            show_progress=args.progress
+            show_progress=args.progress,
+            output_format=args.format
         )
         print(f"Successfully created {output_path}")
         return 0
