@@ -39,6 +39,11 @@ Generate text output instead of XML (XML is now the default):
 ppc /path/to/src --format text
 ```
 
+Use full XML tags instead of compact format:
+```bash
+ppc /path/to/src --no-compact-xml
+```
+
 Ignore specific patterns:
 ```bash
 ppc /path/to/src --ignore "*.log" "*.tmp"
@@ -60,6 +65,7 @@ ppc /path/to/src -f
 - Generates a tree-like directory structure based on the specified root
 - Preserves file structure with full relative paths from the root directory
 - Supports both XML (default) and plain text output formats
+- XML format has both compact and full-tag modes for different use cases
 - Built-in ignore patterns for common files (e.g., `.git`, `__pycache__`, etc.)
 - Customizable output file path
 - Optional progress bar for large projects
@@ -101,7 +107,30 @@ The generated XML output file provides a structured representation with:
 1. A hierarchical view of your project directory structure
 2. The contents of all specified files, with paths relative to the root
 
-Example XML output:
+#### Compact XML (Default)
+
+By default, the tool produces compact XML with minimal tags and no indentation to reduce file size. It includes a legend comment at the beginning of the file explaining all tags:
+
+```xml
+<!--
+XML Tag Legend:
+- p: project (root element)
+- n: name (project name)
+- s: structure (directory structure)
+- d: directory
+- f: file
+- c: contents (file contents section)
+- p attribute: path of file or directory
+- s inside directory: skipped directory
+- e: error
+-->
+<p><n>project-name</n><s><d p="src"><f p="main.py"/><d p="utils"><f p="helper.py"/></d></d><d p="tests"><f p="test_main.py"/></d></s><c><f p="src/main.py">[file content here]</f></c></p>
+```
+
+#### Full XML (with --no-compact-xml option)
+
+For better readability, you can use the `--no-compact-xml` option to get full tags with proper indentation:
+
 ```xml
 <project>
   <name>project-name</name>
@@ -140,7 +169,7 @@ For convenience, this tool provides three command aliases:
 All commands provide identical functionality:
 
 ```bash
-# These all do the same thing (generate XML by default):
+# These all do the same thing (generate compact XML by default):
 promptpack-for-code /path/to/src
 ppc /path/to/src
 packcode /path/to/src

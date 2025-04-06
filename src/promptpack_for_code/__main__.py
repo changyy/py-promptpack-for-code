@@ -18,19 +18,22 @@ Examples:
   promptpack-for-code dir1 dir2 dir3
   
   # Specify custom output file
-  promptpack-for-code /path/to/code -o result.txt
+  promptpack-for-code /path/to/src -o /path/to/output/result.xml
   
   # Specify root directory for tree structure
   promptpack-for-code /path/to/src -r /path/to/project/root
   
+  # Generate text output instead of XML
+  promptpack-for-code /path/to/src --format text
+  
+  # Use full XML tags instead of compact format
+  promptpack-for-code /path/to/src --no-compact-xml
+  
   # Ignore specific patterns
-  promptpack-for-code /path/to/code --ignore "*.log" "*.tmp"
+  promptpack-for-code /path/to/src --ignore "*.log" "*.tmp"
   
   # Show progress bar
-  promptpack-for-code /path/to/code --progress
-  
-  # Generate XML output instead of text
-  promptpack-for-code /path/to/code --format xml
+  promptpack-for-code /path/to/src --progress
 """
     )
     parser.add_argument(
@@ -88,6 +91,11 @@ Examples:
         default="xml",
         help="Output format (xml or text, default: xml)"
     )
+    parser.add_argument(
+        "--no-compact-xml",
+        action="store_true",
+        help="Use full XML tags instead of compact format (only applies to XML output)"
+    )
 
     args = parser.parse_args()
 
@@ -138,7 +146,8 @@ Examples:
             ignore_patterns=args.ignore,
             force_overwrite=args.force,
             show_progress=args.progress,
-            output_format=args.format
+            output_format=args.format,
+            compact_xml=not args.no_compact_xml
         )
         print(f"Successfully created {output_path}")
         return 0

@@ -13,13 +13,13 @@ import xml.etree.ElementTree as ET
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def generate_directory_structure_xml(
+def generate_compact_xml_structure(
     path: Path,
     parent_element: ET.Element,
     ignore_patterns: Optional[List[str]] = None
 ) -> None:
     """
-    Generate XML elements for the directory structure.
+    Generate compact XML elements for the directory structure.
     
     Args:
         path: Path object to generate structure from
@@ -36,7 +36,7 @@ def generate_directory_structure_xml(
     # Check if this directory matches ignore patterns
     for pattern in ignore_patterns:
         if fnmatch.fnmatch(path.name, pattern):
-            skipped = ET.SubElement(parent_element, "skipped")
+            skipped = ET.SubElement(parent_element, "s")
             return
 
     try:
@@ -44,22 +44,22 @@ def generate_directory_structure_xml(
         for item in contents:
             if any(fnmatch.fnmatch(item.name, pattern) for pattern in ignore_patterns):
                 if item.is_dir():
-                    dir_element = ET.SubElement(parent_element, "directory")
-                    dir_element.set("path", str(item.name))
-                    skipped = ET.SubElement(dir_element, "skipped")
+                    dir_element = ET.SubElement(parent_element, "d")
+                    dir_element.set("p", str(item.name))
+                    skipped = ET.SubElement(dir_element, "s")
                 continue
 
             if item.is_dir():
-                dir_element = ET.SubElement(parent_element, "directory")
-                dir_element.set("path", str(item.name))
-                generate_directory_structure_xml(item, dir_element, ignore_patterns)
+                dir_element = ET.SubElement(parent_element, "d")
+                dir_element.set("p", str(item.name))
+                generate_compact_xml_structure(item, dir_element, ignore_patterns)
             else:
-                file_element = ET.SubElement(parent_element, "file")
-                file_element.set("path", str(item.name))
+                file_element = ET.SubElement(parent_element, "f")
+                file_element.set("p", str(item.name))
 
     except PermissionError:
         logger.warning(f"Permission denied accessing directory: {path}")
-        error = ET.SubElement(parent_element, "error")
+        error = ET.SubElement(parent_element, "e")
         error.text = f"Permission denied for {path}"
 
 
@@ -161,11 +161,12 @@ def _process_file(file_path: Path, root_path: Path, ignore_patterns: List[str]) 
 def process_directories(
     directories: List[str],
     root_directory: str,
-    output_file: str = "output.txt",
+    output_file: str = "output.xml",
     ignore_patterns: Optional[List[str]] = None,
     force_overwrite: bool = False,
     show_progress: bool = False,
-    output_format: str = "text"
+    output_format: str = "xml",
+    compact_xml: bool = True
 ) -> None:
     """
     Process all files in multiple directories and their subdirectories.
@@ -178,6 +179,7 @@ def process_directories(
         force_overwrite: Whether to overwrite existing output file
         show_progress: Whether to show a progress bar
         output_format: Output format ('text' or 'xml')
+        compact_xml: Whether to use compact XML format with minimal tags and whitespace
     """
     if ignore_patterns is None:
         ignore_patterns = [
@@ -197,16 +199,20 @@ def process_directories(
     
     # For XML output
     if output_format.lower() == "xml":
-        project = ET.Element("project")
-        project_name = ET.SubElement(project, "name")
+        project = ET.Element("p" if compact_xml else "project")
+        project_name = ET.SubElement(project, "n" if compact_xml else "name")
         project_name.text = root_path.name
         
         # Generate structure
-        structure = ET.SubElement(project, "structure")
-        generate_directory_structure_xml(root_path, structure, ignore_patterns)
+        structure = ET.SubElement(project, "s" if compact_xml else "structure")
+        
+        if compact_xml:
+            generate_compact_xml_structure(root_path, structure, ignore_patterns)
+        else:
+            generate_directory_structure_xml(root_path, structure, ignore_patterns)
         
         # Contents section
-        contents = ET.SubElement(project, "contents")
+        contents = ET.SubElement(project, "c" if compact_xml else "contents")
         
         # Collect all files from specified directories
         all_files = []
@@ -232,18 +238,44 @@ def process_directories(
         # Add file contents to XML
         for file_info in file_contents:
             if file_info:
-                file_element = ET.SubElement(contents, "file")
-                file_element.set("path", file_info["path"])
-                content_element = ET.SubElement(file_element, "content")
-                content_element.text = file_info["content"]
+                if compact_xml:
+                    file_element = ET.SubElement(contents, "f")
+                    file_element.set("p", file_info["path"])
+                    file_element.text = file_info["content"]
+                else:
+                    file_element = ET.SubElement(contents, "file")
+                    file_element.set("path", file_info["path"])
+                    content_element = ET.SubElement(file_element, "content")
+                    content_element.text = file_info["content"]
         
         # Write XML to file
         xml_str = ET.tostring(project, encoding='unicode')
-        dom = xml.dom.minidom.parseString(xml_str)
-        pretty_xml = dom.toprettyxml(indent="  ")
         
-        with open(output_file, 'w', encoding='utf-8') as outfile:
-            outfile.write(pretty_xml)
+        if compact_xml:
+            # Add XML comment with tag descriptions at the beginning
+            xml_comment = """<!--
+XML Tag Legend:
+- p: project (root element)
+- n: name (project name)
+- s: structure (directory structure)
+- d: directory
+- f: file
+- c: contents (file contents section)
+- p attribute: path of file or directory
+- s inside directory: skipped directory
+- e: error
+-->
+"""
+            # Write minimized XML with comment header
+            with open(output_file, 'w', encoding='utf-8') as outfile:
+                outfile.write(xml_comment)
+                outfile.write(xml_str)
+        else:
+            # Write pretty XML with indentation
+            dom = xml.dom.minidom.parseString(xml_str)
+            pretty_xml = dom.toprettyxml(indent="  ")
+            with open(output_file, 'w', encoding='utf-8') as outfile:
+                outfile.write(pretty_xml)
         
     else:  # Text output (original format)
         with open(output_file, 'w', encoding='utf-8') as outfile:
@@ -290,6 +322,49 @@ def process_directories(
                     if file_info:
                         outfile.write(f"\n====\nFile: {file_info['path']}\n----\n\n{file_info['content']}\n")
 
+# For backward compatibility
+def generate_directory_structure_xml(
+    path: Path,
+    parent_element: ET.Element,
+    ignore_patterns: Optional[List[str]] = None
+) -> None:
+    """Original XML generation function (kept for backward compatibility)"""
+    if ignore_patterns is None:
+        ignore_patterns = [
+            ".git", "__pycache__", "*.pyc", "*.pyo", "*.pyd", "*.swp",
+            ".DS_Store", "*.log", ".venv", "venv",
+            "node_modules", "vendor"
+        ]
+
+    # Check if this directory matches ignore patterns
+    for pattern in ignore_patterns:
+        if fnmatch.fnmatch(path.name, pattern):
+            skipped = ET.SubElement(parent_element, "skipped")
+            return
+
+    try:
+        contents = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+        for item in contents:
+            if any(fnmatch.fnmatch(item.name, pattern) for pattern in ignore_patterns):
+                if item.is_dir():
+                    dir_element = ET.SubElement(parent_element, "directory")
+                    dir_element.set("path", str(item.name))
+                    skipped = ET.SubElement(dir_element, "skipped")
+                continue
+
+            if item.is_dir():
+                dir_element = ET.SubElement(parent_element, "directory")
+                dir_element.set("path", str(item.name))
+                generate_directory_structure_xml(item, dir_element, ignore_patterns)
+            else:
+                file_element = ET.SubElement(parent_element, "file")
+                file_element.set("path", str(item.name))
+
+    except PermissionError:
+        logger.warning(f"Permission denied accessing directory: {path}")
+        error = ET.SubElement(parent_element, "error")
+        error.text = f"Permission denied for {path}"
+
 if __name__ == "__main__":
     process_directories(
         directories=["tests"],
@@ -297,5 +372,6 @@ if __name__ == "__main__":
         output_file="output_test.xml",
         force_overwrite=True,
         show_progress=True,
-        output_format="xml"  # 更改為 "xml" 來產生 XML 輸出
+        output_format="xml",
+        compact_xml=True  # 使用精簡的 XML 格式
     )
